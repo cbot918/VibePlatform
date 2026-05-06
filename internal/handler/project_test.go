@@ -53,9 +53,10 @@ func (s *inMemProjectStore) Delete(userID, name string) error {
 // --- mock docker ---
 
 type mockCodeServerDocker struct {
-	ensureFn  func(ctx context.Context, userID, apiKey string) (string, string, error)
-	mkdirFn   func(ctx context.Context, containerID, projectName string) error
-	stopFn    func(ctx context.Context, containerID string) error
+	ensureFn       func(ctx context.Context, userID, apiKey string) (string, string, error)
+	mkdirFn        func(ctx context.Context, containerID, projectName string) error
+	stopFn         func(ctx context.Context, containerID string) error
+	configureGitFn func(ctx context.Context, containerID, gitUser, gitEmail, gitToken string) error
 }
 
 func (m *mockCodeServerDocker) EnsureCodeServer(ctx context.Context, userID, apiKey string) (string, string, error) {
@@ -73,6 +74,12 @@ func (m *mockCodeServerDocker) MkdirProject(ctx context.Context, containerID, pr
 func (m *mockCodeServerDocker) Stop(ctx context.Context, containerID string) error {
 	if m.stopFn != nil {
 		return m.stopFn(ctx, containerID)
+	}
+	return nil
+}
+func (m *mockCodeServerDocker) ConfigureGit(ctx context.Context, containerID, gitUser, gitEmail, gitToken string) error {
+	if m.configureGitFn != nil {
+		return m.configureGitFn(ctx, containerID, gitUser, gitEmail, gitToken)
 	}
 	return nil
 }
@@ -168,6 +175,87 @@ func TestHandleCreateProject_NoAPIKey(t *testing.T) {
 	h.HandleCreate(w, r)
 	if w.Code != http.StatusBadRequest {
 		t.Errorf("want 400 when no API key, got %d", w.Code)
+	}
+}
+
+func TestHandleCreateProject_WithGitSettings_CallsConfigureGit(t *testing.T) {
+	ss := newInMemSettingsStore()
+	_ = ss.Save("1", &store.UserSettings{
+		AnthropicAPIKey: "sk-ant-test",
+		GitUser:         "alice",
+		GitEmail:        "alice@example.com",
+		GitToken:        "ghp_testtoken123",
+	})
+
+	called := false
+	var gotContainerID, gotUser, gotEmail, gotToken string
+	docker := &mockCodeServerDocker{
+		ensureFn: func(_ context.Context, _, _ string) (string, string, error) {
+			return "ctr-git", "32768", nil
+		},
+		configureGitFn: func(_ context.Context, containerID, gitUser, gitEmail, gitToken string) error {
+			called = true
+			gotContainerID = containerID
+			gotUser = gitUser
+			gotEmail = gitEmail
+			gotToken = gitToken
+			return nil
+		},
+	}
+	h := newProjectHandler(docker, nil, nil, ss)
+
+	body, _ := json.Marshal(map[string]string{"name": "gitproject"})
+	r := httptest.NewRequest("POST", "/project", bytes.NewReader(body))
+	r.AddCookie(&http.Cookie{Name: "session", Value: "tok"})
+	r.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	h.HandleCreate(w, r)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("want 200, got %d: %s", w.Code, w.Body.String())
+	}
+	if !called {
+		t.Fatal("expected ConfigureGit to be called, but it was not")
+	}
+	if gotContainerID != "ctr-git" {
+		t.Errorf("want containerID ctr-git, got %q", gotContainerID)
+	}
+	if gotUser != "alice" {
+		t.Errorf("want gitUser alice, got %q", gotUser)
+	}
+	if gotEmail != "alice@example.com" {
+		t.Errorf("want gitEmail alice@example.com, got %q", gotEmail)
+	}
+	if gotToken != "ghp_testtoken123" {
+		t.Errorf("want gitToken ghp_testtoken123, got %q", gotToken)
+	}
+}
+
+func TestHandleCreateProject_NoGitToken_SkipsConfigureGit(t *testing.T) {
+	ss := newInMemSettingsStore()
+	_ = ss.Save("1", &store.UserSettings{AnthropicAPIKey: "sk-ant-test"}) // no git settings
+
+	called := false
+	docker := &mockCodeServerDocker{
+		configureGitFn: func(_ context.Context, _, _, _, _ string) error {
+			called = true
+			return nil
+		},
+	}
+	h := newProjectHandler(docker, nil, nil, ss)
+
+	body, _ := json.Marshal(map[string]string{"name": "nogitproject"})
+	r := httptest.NewRequest("POST", "/project", bytes.NewReader(body))
+	r.AddCookie(&http.Cookie{Name: "session", Value: "tok"})
+	r.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	h.HandleCreate(w, r)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("want 200, got %d: %s", w.Code, w.Body.String())
+	}
+	if called {
+		t.Fatal("expected ConfigureGit NOT to be called when GitToken is empty")
 	}
 }
 

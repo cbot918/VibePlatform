@@ -21,6 +21,7 @@ func New(
 	settingsHandler *handler.SettingsHandler,
 	projectHandler *handler.ProjectHandler,
 	proxyHandler *handler.ProxyHandler,
+	debugHandler *handler.DebugHandler,
 ) http.Handler {
 	r := chi.NewRouter()
 	r.Use(middleware.Logger)
@@ -63,6 +64,9 @@ func New(
 	r.Post("/project", projectHandler.HandleCreate)
 	r.Post("/project/{name}/stop", projectHandler.HandleStop)
 	r.Delete("/project/{name}", projectHandler.HandleDelete)
+
+	// Debug / testing utilities
+	r.Post("/debug/reset", debugHandler.HandleReset)
 
 	// Proxy to code-server (must be last — wildcard)
 	r.Handle("/project/{name}/*", proxyHandler)

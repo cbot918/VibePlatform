@@ -71,8 +71,9 @@ func main() {
 	settingsHandler := handler.NewSettingsHandler(settingsStore, sessionManager, userStore)
 	projectHandler := handler.NewProjectHandler(docker, projectStore, containerStore, settingsStore, sessionManager, userStore)
 	proxyHandler := handler.NewProxyHandler(projectHandler, sessionManager, userStore)
+	debugHandler := handler.NewDebugHandler(docker, containerStore, projectStore, settingsStore, sessionManager, userStore)
 
-	srv := server.New(authHandler, containerHandler, settingsHandler, projectHandler, proxyHandler)
+	srv := server.New(authHandler, containerHandler, settingsHandler, projectHandler, proxyHandler, debugHandler)
 
 	log.Printf("Server listening on :%s", port)
 	if err := http.ListenAndServe(":"+port, srv); err != nil {

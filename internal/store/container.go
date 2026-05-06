@@ -56,6 +56,13 @@ func (s *FileContainerStore) Delete(userID string) error {
 	return s.flush()
 }
 
+func (s *FileContainerStore) Clear() error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.data = make(map[string]*ContainerInfo)
+	return s.flush()
+}
+
 func (s *FileContainerStore) load() error {
 	b, err := os.ReadFile(s.path)
 	if errors.Is(err, os.ErrNotExist) || len(b) == 0 {

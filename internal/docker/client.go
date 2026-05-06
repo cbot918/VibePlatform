@@ -112,13 +112,67 @@ func (c *Client) EnsureCodeServer(ctx context.Context, userID, apiKey string) (c
 
 // MkdirProject 在 container 內建立 /home/coder/{projectName} 資料夾。
 func (c *Client) MkdirProject(ctx context.Context, containerID, projectName string) error {
-	execResp, err := c.cli.ContainerExecCreate(ctx, containerID, container.ExecOptions{
-		Cmd: []string{"mkdir", "-p", "/home/coder/" + projectName},
-	})
+	return c.execIn(ctx, containerID, []string{"mkdir", "-p", "/home/coder/" + projectName})
+}
+
+// execIn 在 container 內執行一個指令（fire-and-forget，不讀 stdout/stderr）。
+func (c *Client) execIn(ctx context.Context, containerID string, cmd []string) error {
+	execResp, err := c.cli.ContainerExecCreate(ctx, containerID, container.ExecOptions{Cmd: cmd})
 	if err != nil {
-		return fmt.Errorf("exec create: %w", err)
+		return fmt.Errorf("exec create %v: %w", cmd, err)
 	}
 	return c.cli.ContainerExecStart(ctx, execResp.ID, container.ExecStartOptions{})
+}
+
+// execWithStdin 在 container 內執行指令，並透過 stdin 傳入 input。
+func (c *Client) execWithStdin(ctx context.Context, containerID string, cmd []string, input string) error {
+	execResp, err := c.cli.ContainerExecCreate(ctx, containerID, container.ExecOptions{
+		Cmd:         cmd,
+		AttachStdin: true,
+	})
+	if err != nil {
+		return fmt.Errorf("exec create %v: %w", cmd, err)
+	}
+	hijack, err := c.cli.ContainerExecAttach(ctx, execResp.ID, container.ExecStartOptions{})
+	if err != nil {
+		return fmt.Errorf("exec attach %v: %w", cmd, err)
+	}
+	defer hijack.Close()
+	if _, err := fmt.Fprint(hijack.Conn, input); err != nil {
+		return fmt.Errorf("write stdin %v: %w", cmd, err)
+	}
+	return hijack.CloseWrite()
+}
+
+// ConfigureGit 在 running container 內設定 git 使用者資訊並透過 gh CLI 認證 GitHub。
+// 每次建立 project 時呼叫，確保憑證始終是最新的（即便 container 是被 reuse 的）。
+func (c *Client) ConfigureGit(ctx context.Context, containerID, gitUser, gitEmail, gitToken string) error {
+	// git global config
+	for _, args := range [][]string{
+		{"git", "config", "--global", "user.name", gitUser},
+		{"git", "config", "--global", "user.email", gitEmail},
+		{"git", "config", "--global", "credential.helper", "store"},
+	} {
+		if err := c.execIn(ctx, containerID, args); err != nil {
+			return err
+		}
+	}
+
+	// Write ~/.git-credentials for HTTPS push
+	cred := fmt.Sprintf("https://%s:%s@github.com\n", gitUser, gitToken)
+	if err := c.execWithStdin(ctx, containerID,
+		[]string{"sh", "-c", "cat > /home/coder/.git-credentials"}, cred); err != nil {
+		return fmt.Errorf("write git-credentials: %w", err)
+	}
+
+	// Authenticate gh CLI
+	if err := c.execWithStdin(ctx, containerID,
+		[]string{"gh", "auth", "login", "--with-token", "--hostname", "github.com"},
+		gitToken+"\n"); err != nil {
+		return fmt.Errorf("gh auth login: %w", err)
+	}
+
+	return nil
 }
 
 // Stop 停止並移除 container

@@ -19,6 +19,15 @@ RUN curl -fsSL https://deb.nodesource.com/setup_24.x | bash - \
 # Install Claude Code globally
 RUN npm install -g @anthropic-ai/claude-code
 
+# Install git and gh CLI
+RUN curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg \
+      | dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg \
+    && chmod go+r /usr/share/keyrings/githubcli-archive-keyring.gpg \
+    && echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" \
+      | tee /etc/apt/sources.list.d/github-cli.list > /dev/null \
+    && apt-get update && apt-get install -y git gh \
+    && apt-get clean && rm -rf /var/lib/apt/lists/*
+
 # Make Go available system-wide and for coder user
 ENV PATH="/usr/local/go/bin:/home/coder/go/bin:$PATH"
 

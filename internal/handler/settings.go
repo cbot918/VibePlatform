@@ -42,10 +42,20 @@ func (h *SettingsHandler) HandleGet(w http.ResponseWriter, r *http.Request) {
 		maskedKey = maskKey(settings.AnthropicAPIKey)
 	}
 
+	hasGitToken := settings.GitToken != ""
+	maskedGitToken := ""
+	if hasGitToken {
+		maskedGitToken = maskKey(settings.GitToken)
+	}
+
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]any{
-		"has_key":    hasKey,
-		"masked_key": maskedKey,
+		"has_key":          hasKey,
+		"masked_key":       maskedKey,
+		"git_user":         settings.GitUser,
+		"git_email":        settings.GitEmail,
+		"has_git_token":    hasGitToken,
+		"masked_git_token": maskedGitToken,
 	})
 }
 
@@ -58,17 +68,35 @@ func (h *SettingsHandler) HandleSave(w http.ResponseWriter, r *http.Request) {
 
 	var body struct {
 		AnthropicAPIKey string `json:"anthropic_api_key"`
+		GitUser         string `json:"git_user"`
+		GitEmail        string `json:"git_email"`
+		GitToken        string `json:"git_token"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 		http.Error(w, "invalid body", http.StatusBadRequest)
 		return
 	}
-	if body.AnthropicAPIKey == "" {
-		http.Error(w, "anthropic_api_key required", http.StatusBadRequest)
+
+	// Load existing settings and patch only non-empty fields.
+	existing, err := h.store.Get(githubID)
+	if err != nil {
+		http.Error(w, "store error", http.StatusInternalServerError)
 		return
 	}
+	if body.AnthropicAPIKey != "" {
+		existing.AnthropicAPIKey = body.AnthropicAPIKey
+	}
+	if body.GitUser != "" {
+		existing.GitUser = body.GitUser
+	}
+	if body.GitEmail != "" {
+		existing.GitEmail = body.GitEmail
+	}
+	if body.GitToken != "" {
+		existing.GitToken = body.GitToken
+	}
 
-	if err := h.store.Save(githubID, &store.UserSettings{AnthropicAPIKey: body.AnthropicAPIKey}); err != nil {
+	if err := h.store.Save(githubID, existing); err != nil {
 		http.Error(w, "store error", http.StatusInternalServerError)
 		return
 	}

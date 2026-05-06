@@ -83,3 +83,91 @@ func TestHandleGetSettings_MasksKey(t *testing.T) {
 		t.Error("masked_key should not return full key")
 	}
 }
+
+func TestHandleGetSettings_GitFields(t *testing.T) {
+	ss := newInMemSettingsStore()
+	_ = ss.Save("1", &store.UserSettings{
+		AnthropicAPIKey: "sk-ant-key",
+		GitUser:         "octocat",
+		GitEmail:        "octocat@example.com",
+		GitToken:        "ghp_abcdefghij1234",
+	})
+	h := handler.NewSettingsHandler(ss, &mockSession{userID: 1}, &mockUserStore{githubID: 1})
+	r := httptest.NewRequest("GET", "/user/settings", nil)
+	r.AddCookie(&http.Cookie{Name: "session", Value: "tok"})
+	w := httptest.NewRecorder()
+	h.HandleGet(w, r)
+	var body map[string]any
+	json.NewDecoder(w.Body).Decode(&body)
+	if body["git_user"] != "octocat" {
+		t.Errorf("want git_user octocat, got %v", body["git_user"])
+	}
+	if body["git_email"] != "octocat@example.com" {
+		t.Errorf("want git_email octocat@example.com, got %v", body["git_email"])
+	}
+	if body["has_git_token"] != true {
+		t.Errorf("want has_git_token true, got %v", body["has_git_token"])
+	}
+	maskedToken, _ := body["masked_git_token"].(string)
+	if maskedToken == "ghp_abcdefghij1234" {
+		t.Error("masked_git_token should not return full token")
+	}
+}
+
+func TestHandlePostSettings_SavesGitFields(t *testing.T) {
+	ss := newInMemSettingsStore()
+	h := handler.NewSettingsHandler(ss, &mockSession{userID: 1}, &mockUserStore{githubID: 1})
+	body, _ := json.Marshal(map[string]string{
+		"anthropic_api_key": "sk-ant-test",
+		"git_user":          "octocat",
+		"git_email":         "octocat@example.com",
+		"git_token":         "ghp_token",
+	})
+	r := httptest.NewRequest("POST", "/user/settings", bytes.NewReader(body))
+	r.AddCookie(&http.Cookie{Name: "session", Value: "tok"})
+	r.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	h.HandleSave(w, r)
+	if w.Code != http.StatusOK {
+		t.Fatalf("want 200, got %d: %s", w.Code, w.Body.String())
+	}
+	saved, _ := ss.Get("1")
+	if saved.GitUser != "octocat" {
+		t.Errorf("want git_user octocat, got %q", saved.GitUser)
+	}
+	if saved.GitEmail != "octocat@example.com" {
+		t.Errorf("want git_email octocat@example.com, got %q", saved.GitEmail)
+	}
+	if saved.GitToken != "ghp_token" {
+		t.Errorf("want git_token ghp_token, got %q", saved.GitToken)
+	}
+}
+
+func TestHandlePostSettings_PatchSemantics(t *testing.T) {
+	ss := newInMemSettingsStore()
+	// 先存 anthropic key
+	_ = ss.Save("1", &store.UserSettings{AnthropicAPIKey: "sk-ant-existing"})
+	h := handler.NewSettingsHandler(ss, &mockSession{userID: 1}, &mockUserStore{githubID: 1})
+	// 只送 git 欄位，不送 anthropic key
+	body, _ := json.Marshal(map[string]string{
+		"git_user":  "octocat",
+		"git_email": "octocat@example.com",
+		"git_token": "ghp_token",
+	})
+	r := httptest.NewRequest("POST", "/user/settings", bytes.NewReader(body))
+	r.AddCookie(&http.Cookie{Name: "session", Value: "tok"})
+	r.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	h.HandleSave(w, r)
+	if w.Code != http.StatusOK {
+		t.Fatalf("want 200, got %d: %s", w.Code, w.Body.String())
+	}
+	saved, _ := ss.Get("1")
+	// Anthropic key 應被保留
+	if saved.AnthropicAPIKey != "sk-ant-existing" {
+		t.Errorf("want existing anthropic key preserved, got %q", saved.AnthropicAPIKey)
+	}
+	if saved.GitUser != "octocat" {
+		t.Errorf("want git_user octocat, got %q", saved.GitUser)
+	}
+}

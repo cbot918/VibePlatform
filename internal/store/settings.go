@@ -9,6 +9,9 @@ import (
 
 type UserSettings struct {
 	AnthropicAPIKey string `json:"anthropic_api_key"`
+	GitUser         string `json:"git_user"`
+	GitEmail        string `json:"git_email"`
+	GitToken        string `json:"git_token"`
 }
 
 type FileSettingsStore struct {
@@ -39,6 +42,13 @@ func (s *FileSettingsStore) Save(userID string, settings *UserSettings) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.data[userID] = settings
+	return s.flush()
+}
+
+func (s *FileSettingsStore) Clear() error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.data = make(map[string]*UserSettings)
 	return s.flush()
 }
 

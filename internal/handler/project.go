@@ -3,6 +3,7 @@ package handler
 import (
 	"context"
 	"encoding/json"
+	"log"
 	"net/http"
 	"regexp"
 
@@ -16,6 +17,7 @@ type CodeServerDocker interface {
 	EnsureCodeServer(ctx context.Context, userID, apiKey string) (containerID, hostPort string, err error)
 	MkdirProject(ctx context.Context, containerID, projectName string) error
 	Stop(ctx context.Context, containerID string) error
+	ConfigureGit(ctx context.Context, containerID, gitUser, gitEmail, gitToken string) error
 }
 
 type ProjectStore interface {
@@ -122,6 +124,14 @@ func (h *ProjectHandler) HandleCreate(w http.ResponseWriter, r *http.Request) {
 	}); err != nil {
 		http.Error(w, "store error", http.StatusInternalServerError)
 		return
+	}
+
+	// Inject git credentials if configured — errors are non-fatal (git is optional)
+	if settings.GitToken != "" {
+		if err := h.docker.ConfigureGit(r.Context(), ctrID,
+			settings.GitUser, settings.GitEmail, settings.GitToken); err != nil {
+			log.Printf("warn: ConfigureGit for user %s: %v", githubID, err)
+		}
 	}
 
 	// Create project folder inside container

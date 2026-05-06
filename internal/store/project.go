@@ -87,6 +87,13 @@ func (s *FileProjectStore) Delete(userID, projectName string) error {
 	return s.flush()
 }
 
+func (s *FileProjectStore) Clear() error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.data = make(map[string]*userProjects)
+	return s.flush()
+}
+
 func (s *FileProjectStore) load() error {
 	b, err := os.ReadFile(s.path)
 	if errors.Is(err, os.ErrNotExist) || len(b) == 0 {

@@ -38,18 +38,51 @@
       <main v-if="view === 'settings'" class="content">
         <div class="card wide">
           <h2>Settings</h2>
-          <p class="hint">設定你的 Anthropic API Key，用於 Claude Code</p>
-          <div class="field">
-            <label>Anthropic API Key</label>
-            <div class="key-row">
-              <span v-if="settings.has_key" class="masked-key">{{ settings.masked_key }}</span>
-              <span v-else class="hint">尚未設定</span>
+
+          <div class="settings-section">
+            <h3 class="settings-section-title">Anthropic</h3>
+            <div class="field">
+              <label>API Key</label>
+              <div class="key-row">
+                <span v-if="settings.has_key" class="masked-key">{{ settings.masked_key }}</span>
+                <span v-else class="hint">尚未設定</span>
+              </div>
+              <input v-model="newApiKey" type="password" placeholder="sk-ant-..." class="input" />
             </div>
-            <input v-model="newApiKey" type="password" placeholder="sk-ant-..." class="input" />
-            <button class="btn-primary" :disabled="!newApiKey || saving" @click="saveSettings">
-              {{ saving ? '儲存中...' : '儲存 API Key' }}
+          </div>
+
+          <div class="settings-section">
+            <h3 class="settings-section-title">GitHub</h3>
+            <div class="field">
+              <label>Git User Name</label>
+              <input v-model="newGitUser" type="text" placeholder="Your Name" class="input" />
+            </div>
+            <div class="field">
+              <label>Git Email</label>
+              <input v-model="newGitEmail" type="text" placeholder="you@example.com" class="input" />
+            </div>
+            <div class="field">
+              <label>GitHub Token (ghp_...)</label>
+              <div class="key-row">
+                <span v-if="settings.has_git_token" class="masked-key">{{ settings.masked_git_token }}</span>
+                <span v-else class="hint">尚未設定</span>
+              </div>
+              <input v-model="newGitToken" type="password" placeholder="ghp_..." class="input" />
+            </div>
+          </div>
+
+          <button class="btn-primary" :disabled="!canSave || saving" @click="saveSettings">
+            {{ saving ? '儲存中...' : '儲存設定' }}
+          </button>
+          <p v-if="saveMsg" class="save-msg">{{ saveMsg }}</p>
+
+          <div class="settings-section">
+            <h3 class="settings-section-title">Tests</h3>
+            <p class="hint">停止並移除目前的 container，清空所有儲存的資料（projects、settings、container 記錄）。</p>
+            <button class="btn-danger" :disabled="resetting" @click="resetEnv">
+              {{ resetting ? '重置中...' : '重置環境' }}
             </button>
-            <p v-if="saveMsg" class="save-msg">{{ saveMsg }}</p>
+            <p v-if="resetMsg" :class="resetMsgError ? 'error-msg' : 'save-msg'">{{ resetMsg }}</p>
           </div>
         </div>
       </main>
@@ -107,10 +140,18 @@ const status = ref('loading')
 const user = ref(null)
 const view = ref('projects')
 
-const settings = ref({ has_key: false, masked_key: '' })
+const settings = ref({ has_key: false, masked_key: '', git_user: '', git_email: '', has_git_token: false, masked_git_token: '' })
 const newApiKey = ref('')
+const newGitUser = ref('')
+const newGitEmail = ref('')
+const newGitToken = ref('')
 const saving = ref(false)
 const saveMsg = ref('')
+const resetting = ref(false)
+const resetMsg = ref('')
+const resetMsgError = ref(false)
+
+const canSave = computed(() => newApiKey.value && newGitUser.value && newGitEmail.value && newGitToken.value)
 
 const projectsMap = ref({})
 const projects = computed(() => Object.values(projectsMap.value))
@@ -136,7 +177,12 @@ async function checkAuth() {
 
 async function fetchSettings() {
   const res = await api('/user/settings')
-  if (res.ok) settings.value = await res.json()
+  if (res.ok) {
+    const data = await res.json()
+    settings.value = data
+    newGitUser.value = data.git_user || user.value?.name || user.value?.login || ''
+    newGitEmail.value = data.git_email || user.value?.email || ''
+  }
 }
 
 async function saveSettings() {
@@ -145,11 +191,17 @@ async function saveSettings() {
   const res = await api('/user/settings', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ anthropic_api_key: newApiKey.value }),
+    body: JSON.stringify({
+      anthropic_api_key: newApiKey.value,
+      git_user: newGitUser.value,
+      git_email: newGitEmail.value,
+      git_token: newGitToken.value,
+    }),
   })
   if (res.ok) {
     saveMsg.value = '已儲存'
     newApiKey.value = ''
+    newGitToken.value = ''
     await fetchSettings()
   } else {
     saveMsg.value = '儲存失敗'
@@ -196,6 +248,27 @@ async function deleteProject(name) {
   await api(`/project/${name}`, { method: 'DELETE' })
   delete projectsMap.value[name]
   projectsMap.value = { ...projectsMap.value }
+}
+
+async function resetEnv() {
+  if (!confirm('確定要重置？這會刪除 container 並清空所有資料。')) return
+  resetting.value = true
+  resetMsg.value = ''
+  resetMsgError.value = false
+  const res = await api('/debug/reset', { method: 'POST' })
+  if (res.ok) {
+    resetMsg.value = '重置完成'
+    projectsMap.value = {}
+    settings.value = { has_key: false, masked_key: '', git_user: '', git_email: '', has_git_token: false, masked_git_token: '' }
+    newApiKey.value = ''
+    newGitUser.value = ''
+    newGitEmail.value = ''
+    newGitToken.value = ''
+  } else {
+    resetMsgError.value = true
+    resetMsg.value = '重置失敗：' + (await res.text())
+  }
+  resetting.value = false
 }
 
 async function logout() {
@@ -273,6 +346,9 @@ h2 { font-size: 18px; color: #111; margin-bottom: 4px; }
 h3 { font-size: 15px; color: #111; margin-bottom: 8px; }
 
 /* Settings */
+.settings-section { margin-top: 20px; padding-top: 20px; border-top: 1px solid #f0f0f0; }
+.settings-section:first-of-type { margin-top: 16px; padding-top: 0; border-top: none; }
+.settings-section-title { font-size: 13px; font-weight: 600; color: #888; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 2px; }
 .field { display: flex; flex-direction: column; gap: 10px; margin-top: 16px; }
 label { font-size: 13px; font-weight: 500; color: #555; }
 .key-row { font-size: 13px; color: #888; }
@@ -358,6 +434,13 @@ label { font-size: 13px; font-weight: 500; color: #555; }
 .btn-sm:disabled { opacity: 0.4; cursor: not-allowed; }
 .btn-sm.danger { color: #e05c5c; border-color: #f5c6c6; }
 .btn-sm.danger:hover { background: #fff0f0; }
+.btn-danger {
+  padding: 9px 18px; background: #e05c5c; color: white;
+  border: none; border-radius: 6px; font-size: 14px; font-weight: 500;
+  cursor: pointer; transition: opacity 0.15s;
+}
+.btn-danger:hover:not(:disabled) { opacity: 0.85; }
+.btn-danger:disabled { opacity: 0.5; cursor: not-allowed; }
 .link-btn { background: none; border: none; color: #0969da; cursor: pointer; font-size: inherit; padding: 0; text-decoration: underline; }
 
 .btn-row { display: flex; gap: 8px; }

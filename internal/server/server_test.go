@@ -17,6 +17,7 @@ func TestIndexPage_Returns200(t *testing.T) {
 		handler.NewSettingsHandler(nil, nil, nil),
 		handler.NewProjectHandler(nil, nil, nil, nil, nil, nil),
 		handler.NewProxyHandler(nil, nil, nil),
+		handler.NewDebugHandler(nil, nil, nil, nil, nil, nil),
 	)
 	req := httptest.NewRequest("GET", "/", nil)
 	rr := httptest.NewRecorder()
@@ -34,6 +35,7 @@ func TestIndexPage_ContentType(t *testing.T) {
 		handler.NewSettingsHandler(nil, nil, nil),
 		handler.NewProjectHandler(nil, nil, nil, nil, nil, nil),
 		handler.NewProxyHandler(nil, nil, nil),
+		handler.NewDebugHandler(nil, nil, nil, nil, nil, nil),
 	)
 	req := httptest.NewRequest("GET", "/", nil)
 	rr := httptest.NewRecorder()
@@ -52,6 +54,7 @@ func TestIndexPage_ContainsGithubLink(t *testing.T) {
 		handler.NewSettingsHandler(nil, nil, nil),
 		handler.NewProjectHandler(nil, nil, nil, nil, nil, nil),
 		handler.NewProxyHandler(nil, nil, nil),
+		handler.NewDebugHandler(nil, nil, nil, nil, nil, nil),
 	)
 	req := httptest.NewRequest("GET", "/", nil)
 	rr := httptest.NewRecorder()
