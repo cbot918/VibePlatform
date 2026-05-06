@@ -31,14 +31,15 @@ type SessionService interface {
 }
 
 type AuthHandler struct {
-	github      GithubOAuth
-	sessions    SessionService
-	users       store.UserStore
-	frontendURL string
+	github        GithubOAuth
+	sessions      SessionService
+	users         store.UserStore
+	frontendURL   string
+	secureCookies bool
 }
 
-func NewAuthHandler(github GithubOAuth, sessions SessionService, users store.UserStore, frontendURL string) *AuthHandler {
-	return &AuthHandler{github: github, sessions: sessions, users: users, frontendURL: frontendURL}
+func NewAuthHandler(github GithubOAuth, sessions SessionService, users store.UserStore, frontendURL string, secureCookies bool) *AuthHandler {
+	return &AuthHandler{github: github, sessions: sessions, users: users, frontendURL: frontendURL, secureCookies: secureCookies}
 }
 
 func (h *AuthHandler) HandleGithubLogin(w http.ResponseWriter, r *http.Request) {
@@ -52,8 +53,8 @@ func (h *AuthHandler) HandleGithubLogin(w http.ResponseWriter, r *http.Request) 
 		Value:    state,
 		MaxAge:   300,
 		HttpOnly: true,
-		Secure:   true,
-		SameSite: http.SameSiteNoneMode,
+		Secure:   h.secureCookies,
+		SameSite: h.sameSite(),
 		Path:     "/",
 	})
 	http.Redirect(w, r, h.github.AuthCodeURL(state), http.StatusFound)
@@ -65,7 +66,7 @@ func (h *AuthHandler) HandleGithubCallback(w http.ResponseWriter, r *http.Reques
 		http.Error(w, "invalid state", http.StatusBadRequest)
 		return
 	}
-	http.SetCookie(w, &http.Cookie{Name: stateCookieName, Value: "", MaxAge: -1, Path: "/", Secure: true, SameSite: http.SameSiteNoneMode})
+	http.SetCookie(w, &http.Cookie{Name: stateCookieName, Value: "", MaxAge: -1, Path: "/", Secure: h.secureCookies, SameSite: h.sameSite()})
 
 	code := r.URL.Query().Get("code")
 	if code == "" {
@@ -102,8 +103,8 @@ func (h *AuthHandler) HandleGithubCallback(w http.ResponseWriter, r *http.Reques
 		Value:    sessionToken,
 		MaxAge:   int((7 * 24 * time.Hour).Seconds()),
 		HttpOnly: true,
-		Secure:   true,
-		SameSite: http.SameSiteNoneMode,
+		Secure:   h.secureCookies,
+		SameSite: h.sameSite(),
 		Path:     "/",
 	})
 	http.Redirect(w, r, h.frontendURL, http.StatusFound)
@@ -141,6 +142,13 @@ func (h *AuthHandler) HandleLogout(w http.ResponseWriter, r *http.Request) {
 		Path:     "/",
 	})
 	w.WriteHeader(http.StatusOK)
+}
+
+func (h *AuthHandler) sameSite() http.SameSite {
+	if h.secureCookies {
+		return http.SameSiteNoneMode
+	}
+	return http.SameSiteLaxMode
 }
 
 func generateState() (string, error) {

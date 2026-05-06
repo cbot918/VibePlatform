@@ -53,7 +53,7 @@ func (m *mockSession) ValidateToken(_ string) (int64, error) {
 
 func TestHandleGithubLogin(t *testing.T) {
 	mg := &mockGithub{authURL: "https://github.com/login/oauth/authorize"}
-	h := NewAuthHandler(mg, &mockSession{}, store.NewInMemoryUserStore(), "http://localhost:5173")
+	h := NewAuthHandler(mg, &mockSession{}, store.NewInMemoryUserStore(), "", false)
 
 	req := httptest.NewRequest("GET", "/auth/github", nil)
 	rr := httptest.NewRecorder()
@@ -87,7 +87,7 @@ func TestHandleGithubCallback_Success(t *testing.T) {
 	}
 	ms := &mockSession{token: "jwt-token", userID: 1}
 	userStore := store.NewInMemoryUserStore()
-	h := NewAuthHandler(mg, ms, userStore, "http://localhost:5173")
+	h := NewAuthHandler(mg, ms, userStore, "http://localhost:5173", false)
 
 	req := httptest.NewRequest("GET", "/auth/github/callback?code=abc&state=mystate", nil)
 	req.AddCookie(&http.Cookie{Name: stateCookieName, Value: "mystate"})
@@ -117,7 +117,7 @@ func TestHandleGithubCallback_Success(t *testing.T) {
 }
 
 func TestHandleGithubCallback_InvalidState(t *testing.T) {
-	h := NewAuthHandler(&mockGithub{}, &mockSession{}, store.NewInMemoryUserStore(), "")
+	h := NewAuthHandler(nil, nil, store.NewInMemoryUserStore(), "", false)
 
 	req := httptest.NewRequest("GET", "/auth/github/callback?code=abc&state=wrong", nil)
 	req.AddCookie(&http.Cookie{Name: stateCookieName, Value: "different"})
@@ -131,7 +131,7 @@ func TestHandleGithubCallback_InvalidState(t *testing.T) {
 }
 
 func TestHandleGithubCallback_MissingCode(t *testing.T) {
-	h := NewAuthHandler(&mockGithub{}, &mockSession{}, store.NewInMemoryUserStore(), "")
+	h := NewAuthHandler(nil, nil, store.NewInMemoryUserStore(), "", false)
 
 	req := httptest.NewRequest("GET", "/auth/github/callback?state=mystate", nil)
 	req.AddCookie(&http.Cookie{Name: stateCookieName, Value: "mystate"})
@@ -148,7 +148,7 @@ func TestHandleMe_Authenticated(t *testing.T) {
 	userStore := store.NewInMemoryUserStore()
 	created, _ := userStore.Upsert(&model.User{GithubID: 1, Login: "testuser"})
 	ms := &mockSession{userID: created.ID}
-	h := NewAuthHandler(nil, ms, userStore, "")
+	h := NewAuthHandler(nil, ms, userStore, "", false)
 
 	req := httptest.NewRequest("GET", "/auth/me", nil)
 	req.AddCookie(&http.Cookie{Name: sessionCookieName, Value: "valid-jwt"})
@@ -170,7 +170,7 @@ func TestHandleMe_Authenticated(t *testing.T) {
 }
 
 func TestHandleMe_Unauthenticated(t *testing.T) {
-	h := NewAuthHandler(nil, &mockSession{err: errors.New("no session")}, store.NewInMemoryUserStore(), "")
+	h := NewAuthHandler(nil, &mockSession{err: errors.New("invalid")}, store.NewInMemoryUserStore(), "", false)
 
 	req := httptest.NewRequest("GET", "/auth/me", nil)
 	rr := httptest.NewRecorder()
@@ -182,7 +182,7 @@ func TestHandleMe_Unauthenticated(t *testing.T) {
 }
 
 func TestHandleLogout(t *testing.T) {
-	h := NewAuthHandler(nil, &mockSession{}, store.NewInMemoryUserStore(), "")
+	h := NewAuthHandler(nil, nil, store.NewInMemoryUserStore(), "", false)
 
 	req := httptest.NewRequest("POST", "/auth/logout", nil)
 	req.AddCookie(&http.Cookie{Name: sessionCookieName, Value: "some-token"})

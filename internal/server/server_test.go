@@ -12,7 +12,7 @@ import (
 
 func TestIndexPage_Returns200(t *testing.T) {
 	srv := New(
-		handler.NewAuthHandler(nil, nil, store.NewInMemoryUserStore(), ""),
+		handler.NewAuthHandler(nil, nil, store.NewInMemoryUserStore(), "", false),
 		handler.NewContainerHandler(nil, nil, nil, nil),
 		handler.NewSettingsHandler(nil, nil, nil),
 		handler.NewProjectHandler(nil, nil, nil, nil, nil, nil),
@@ -29,7 +29,7 @@ func TestIndexPage_Returns200(t *testing.T) {
 
 func TestIndexPage_ContentType(t *testing.T) {
 	srv := New(
-		handler.NewAuthHandler(nil, nil, store.NewInMemoryUserStore(), ""),
+		handler.NewAuthHandler(nil, nil, store.NewInMemoryUserStore(), "", false),
 		handler.NewContainerHandler(nil, nil, nil, nil),
 		handler.NewSettingsHandler(nil, nil, nil),
 		handler.NewProjectHandler(nil, nil, nil, nil, nil, nil),
@@ -47,7 +47,7 @@ func TestIndexPage_ContentType(t *testing.T) {
 
 func TestIndexPage_ContainsGithubLink(t *testing.T) {
 	srv := New(
-		handler.NewAuthHandler(nil, nil, store.NewInMemoryUserStore(), ""),
+		handler.NewAuthHandler(nil, nil, store.NewInMemoryUserStore(), "", false),
 		handler.NewContainerHandler(nil, nil, nil, nil),
 		handler.NewSettingsHandler(nil, nil, nil),
 		handler.NewProjectHandler(nil, nil, nil, nil, nil, nil),

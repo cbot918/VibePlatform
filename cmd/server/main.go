@@ -36,6 +36,7 @@ func main() {
 	if baseURL == "" {
 		baseURL = fmt.Sprintf("http://localhost:%s", port)
 	}
+	secureCookies := os.Getenv("SECURE_COOKIES") == "true"
 
 	if err := os.MkdirAll(dataDir, 0755); err != nil {
 		log.Fatalf("create data dir: %v", err)
@@ -65,7 +66,7 @@ func main() {
 	}
 
 	// Handlers
-	authHandler := handler.NewAuthHandler(githubClient, sessionManager, userStore, frontendURL)
+	authHandler := handler.NewAuthHandler(githubClient, sessionManager, userStore, frontendURL, secureCookies)
 	containerHandler := handler.NewContainerHandler(docker, containerStore, sessionManager, userStore)
 	settingsHandler := handler.NewSettingsHandler(settingsStore, sessionManager, userStore)
 	projectHandler := handler.NewProjectHandler(docker, projectStore, containerStore, settingsStore, sessionManager, userStore)
