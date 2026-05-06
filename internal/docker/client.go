@@ -48,6 +48,22 @@ func (c *Client) EnsureCodeServer(ctx context.Context, userID, apiKey string) (c
 		rc.Close()
 	}
 
+	containerName := fmt.Sprintf("vibe-cs-%s", userID)
+
+	// If container already exists, reuse it (start if stopped).
+	if info, err := c.cli.ContainerInspect(ctx, containerName); err == nil {
+		if !info.State.Running {
+			if err := c.cli.ContainerStart(ctx, info.ID, container.StartOptions{}); err != nil {
+				return "", "", fmt.Errorf("start existing container: %w", err)
+			}
+		}
+		port, err := c.hostPortFor(ctx, info.ID, CodeServerPort)
+		if err != nil {
+			return info.ID, "", err
+		}
+		return info.ID, port, nil
+	}
+
 	env := []string{
 		"ANTHROPIC_API_KEY=" + apiKey,
 	}
@@ -76,7 +92,7 @@ func (c *Client) EnsureCodeServer(ctx context.Context, userID, apiKey string) (c
 			PortBindings: portBindings,
 		},
 		nil, nil,
-		fmt.Sprintf("vibe-cs-%s", userID),
+		containerName,
 	)
 	if err != nil {
 		return "", "", fmt.Errorf("create container: %w", err)
