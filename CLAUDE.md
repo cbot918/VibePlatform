@@ -9,7 +9,7 @@ VibePlatform is a platform that lets users vibe-code and deploy applications. Us
 ## Tech Stack
 
 - **Backend**: Go
-- **Frontend**: Vite + React + TypeScript
+- **Frontend**: Vite + Vue.js
 
 ## Implementation Scope
 
@@ -35,11 +35,10 @@ go test ./internal/auth/... # run tests in a specific package
 go build ./...            # build
 ```
 
-**Frontend (Vite/React/TS)** *(not yet scaffolded)*
+**Frontend (Vite/Vue.js)**
 ```bash
-npm install && npm run dev   # install and start dev server
-npm run build                # production build
-npm run typecheck            # type-check without building
+cd frontend && npm install && npm run dev   # install and start dev server
+cd frontend && npm run build               # production build
 ```
 
 **Environment**: copy `.env.example` to `.env` and fill in `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET`, `JWT_SECRET`.

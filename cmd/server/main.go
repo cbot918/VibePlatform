@@ -21,13 +21,17 @@ func main() {
 	frontendURL := os.Getenv("FRONTEND_URL")
 
 	if port == "" {
-		port = "8080"
+		port = "3001"
 	}
 	if frontendURL == "" {
 		frontendURL = "http://localhost:5173"
 	}
 
-	redirectURL := fmt.Sprintf("http://localhost:%s/auth/github/callback", port)
+	baseURL := os.Getenv("BASE_URL")
+	if baseURL == "" {
+		baseURL = fmt.Sprintf("http://localhost:%s", port)
+	}
+	redirectURL := baseURL + "/auth/github/callback"
 
 	githubClient := auth.NewGithubClient(clientID, clientSecret, redirectURL)
 	sessionManager := auth.NewSessionManager(jwtSecret, 7*24*time.Hour)

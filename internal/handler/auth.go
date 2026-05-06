@@ -52,7 +52,8 @@ func (h *AuthHandler) HandleGithubLogin(w http.ResponseWriter, r *http.Request) 
 		Value:    state,
 		MaxAge:   300,
 		HttpOnly: true,
-		SameSite: http.SameSiteLaxMode,
+		Secure:   true,
+		SameSite: http.SameSiteNoneMode,
 		Path:     "/",
 	})
 	http.Redirect(w, r, h.github.AuthCodeURL(state), http.StatusFound)
@@ -64,7 +65,7 @@ func (h *AuthHandler) HandleGithubCallback(w http.ResponseWriter, r *http.Reques
 		http.Error(w, "invalid state", http.StatusBadRequest)
 		return
 	}
-	http.SetCookie(w, &http.Cookie{Name: stateCookieName, Value: "", MaxAge: -1, Path: "/"})
+	http.SetCookie(w, &http.Cookie{Name: stateCookieName, Value: "", MaxAge: -1, Path: "/", Secure: true, SameSite: http.SameSiteNoneMode})
 
 	code := r.URL.Query().Get("code")
 	if code == "" {
@@ -101,7 +102,8 @@ func (h *AuthHandler) HandleGithubCallback(w http.ResponseWriter, r *http.Reques
 		Value:    sessionToken,
 		MaxAge:   int((7 * 24 * time.Hour).Seconds()),
 		HttpOnly: true,
-		SameSite: http.SameSiteLaxMode,
+		Secure:   true,
+		SameSite: http.SameSiteNoneMode,
 		Path:     "/",
 	})
 	http.Redirect(w, r, h.frontendURL, http.StatusFound)
