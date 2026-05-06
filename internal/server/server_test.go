@@ -11,7 +11,13 @@ import (
 )
 
 func TestIndexPage_Returns200(t *testing.T) {
-	srv := New(handler.NewAuthHandler(nil, nil, store.NewInMemoryUserStore(), ""))
+	srv := New(
+		handler.NewAuthHandler(nil, nil, store.NewInMemoryUserStore(), ""),
+		handler.NewContainerHandler(nil, nil, nil, nil),
+		handler.NewSettingsHandler(nil, nil, nil),
+		handler.NewProjectHandler(nil, nil, nil, nil, nil, nil),
+		handler.NewProxyHandler(nil, nil, nil),
+	)
 	req := httptest.NewRequest("GET", "/", nil)
 	rr := httptest.NewRecorder()
 	srv.ServeHTTP(rr, req)
@@ -22,7 +28,13 @@ func TestIndexPage_Returns200(t *testing.T) {
 }
 
 func TestIndexPage_ContentType(t *testing.T) {
-	srv := New(handler.NewAuthHandler(nil, nil, store.NewInMemoryUserStore(), ""))
+	srv := New(
+		handler.NewAuthHandler(nil, nil, store.NewInMemoryUserStore(), ""),
+		handler.NewContainerHandler(nil, nil, nil, nil),
+		handler.NewSettingsHandler(nil, nil, nil),
+		handler.NewProjectHandler(nil, nil, nil, nil, nil, nil),
+		handler.NewProxyHandler(nil, nil, nil),
+	)
 	req := httptest.NewRequest("GET", "/", nil)
 	rr := httptest.NewRecorder()
 	srv.ServeHTTP(rr, req)
@@ -34,7 +46,13 @@ func TestIndexPage_ContentType(t *testing.T) {
 }
 
 func TestIndexPage_ContainsGithubLink(t *testing.T) {
-	srv := New(handler.NewAuthHandler(nil, nil, store.NewInMemoryUserStore(), ""))
+	srv := New(
+		handler.NewAuthHandler(nil, nil, store.NewInMemoryUserStore(), ""),
+		handler.NewContainerHandler(nil, nil, nil, nil),
+		handler.NewSettingsHandler(nil, nil, nil),
+		handler.NewProjectHandler(nil, nil, nil, nil, nil, nil),
+		handler.NewProxyHandler(nil, nil, nil),
+	)
 	req := httptest.NewRequest("GET", "/", nil)
 	rr := httptest.NewRecorder()
 	srv.ServeHTTP(rr, req)

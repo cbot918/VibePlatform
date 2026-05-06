@@ -15,7 +15,13 @@ import (
 //go:embed static/index.html
 var indexHTML []byte
 
-func New(authHandler *handler.AuthHandler) http.Handler {
+func New(
+	authHandler *handler.AuthHandler,
+	containerHandler *handler.ContainerHandler,
+	settingsHandler *handler.SettingsHandler,
+	projectHandler *handler.ProjectHandler,
+	proxyHandler *handler.ProxyHandler,
+) http.Handler {
 	r := chi.NewRouter()
 	r.Use(middleware.Logger)
 	r.Use(middleware.Recoverer)
@@ -27,7 +33,7 @@ func New(authHandler *handler.AuthHandler) http.Handler {
 
 	r.Use(cors.Handler(cors.Options{
 		AllowedOrigins:   []string{frontendURL},
-		AllowedMethods:   []string{"GET", "POST", "OPTIONS"},
+		AllowedMethods:   []string{"GET", "POST", "DELETE", "OPTIONS"},
 		AllowedHeaders:   []string{"Accept", "Content-Type"},
 		AllowCredentials: true,
 	}))
@@ -37,10 +43,30 @@ func New(authHandler *handler.AuthHandler) http.Handler {
 		w.Write(indexHTML)
 	})
 
+	// Auth
 	r.Get("/auth/github", authHandler.HandleGithubLogin)
 	r.Get("/auth/github/callback", authHandler.HandleGithubCallback)
 	r.Get("/auth/me", authHandler.HandleMe)
 	r.Post("/auth/logout", authHandler.HandleLogout)
+
+	// Legacy container (ubuntu)
+	r.Post("/container/start", containerHandler.HandleStart)
+	r.Get("/container/status", containerHandler.HandleStatus)
+	r.Post("/container/stop", containerHandler.HandleStop)
+
+	// User settings
+	r.Get("/user/settings", settingsHandler.HandleGet)
+	r.Post("/user/settings", settingsHandler.HandleSave)
+
+	// Projects (code-server)
+	r.Get("/project", projectHandler.HandleList)
+	r.Post("/project", projectHandler.HandleCreate)
+	r.Post("/project/{name}/stop", projectHandler.HandleStop)
+	r.Delete("/project/{name}", projectHandler.HandleDelete)
+
+	// Proxy to code-server (must be last — wildcard)
+	r.Handle("/project/{name}/*", proxyHandler)
+	r.Handle("/project/{name}", proxyHandler)
 
 	return r
 }
