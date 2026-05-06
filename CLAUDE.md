@@ -25,6 +25,14 @@ Current scope (from todo.md):
 
 Deployment and other features are explicitly out of scope for now.
 
+## Docker Image
+
+The code-server containers use a custom image with Node 24, Go 1.24, and Claude Code pre-installed. Build it once before running the server:
+
+```bash
+docker build -t vibeplatform-code-server:latest ./docker
+```
+
 ## Development Commands
 
 **Backend (Go)**

@@ -17,7 +17,7 @@ const (
 	ImageUbuntu = "ubuntu:22.04"
 
 	// code-server image and its internal port
-	ImageCodeServer     = "codercom/code-server:latest"
+	ImageCodeServer     = "vibeplatform-code-server:latest"
 	CodeServerPort      = "8080/tcp"
 	CodeServerPortInner = "8080"
 )

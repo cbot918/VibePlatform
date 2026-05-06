@@ -2,7 +2,7 @@
 - [X] 使用者可以開一個 docker container 出來
 - [X] 使用者可以進入 code-server UI
   - [X] project_name 跟 vscode 開啟的 folder 沒有匹配
-  - [ ] 預設安裝好 node24, claude code 跟 golang
+  - [X] 預設安裝好 node24, claude code 跟 golang
 - [ ] 幫忙推 github
 - [ ] 幫忙佈署
 - [ ]
