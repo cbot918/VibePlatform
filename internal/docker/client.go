@@ -38,12 +38,15 @@ func New() (*Client, error) {
 // Container 命名為 vibe-{userID}；各 project 為 /home/coder/{projectName} 資料夾。
 // 回傳 containerID 和對應的 host port。
 func (c *Client) EnsureCodeServer(ctx context.Context, userID, apiKey string) (containerID, hostPort string, err error) {
-	rc, err := c.cli.ImagePull(ctx, ImageCodeServer, image.PullOptions{})
-	if err != nil {
-		return "", "", fmt.Errorf("pull image: %w", err)
+	// Only pull if the image is not already present locally.
+	if _, _, inspectErr := c.cli.ImageInspectWithRaw(ctx, ImageCodeServer); inspectErr != nil {
+		rc, pullErr := c.cli.ImagePull(ctx, ImageCodeServer, image.PullOptions{})
+		if pullErr != nil {
+			return "", "", fmt.Errorf("pull image: %w", pullErr)
+		}
+		io.Copy(os.Stderr, rc)
+		rc.Close()
 	}
-	io.Copy(os.Stderr, rc)
-	rc.Close()
 
 	env := []string{
 		"ANTHROPIC_API_KEY=" + apiKey,
